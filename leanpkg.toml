@@ -1,0 +1,8 @@
+[package]
+name = "lean-sesh"
+version = "0.1"
+lean_version = "nightly-2019-01-13"
+path = "src"
+
+[dependencies]
+mathlib = {git = "https://github.com/leanprover/mathlib", rev = "2bf44d312d5f5f358ce8d9e682c23238e2e86429"}
