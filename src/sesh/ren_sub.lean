@@ -185,15 +185,17 @@ def ssubst {γ} {Γ Γ': context γ} {A B: tp} {π: mult}
     simp with unfold_, unfold ssub_mat, solve_context,
   end)
 
-/-
-def dsub_mat {γ} (Γ: context γ) (A B: tp)
-  : matrix (A::B::γ) γ := sorry
+def dsub_mat {γ} (Γ₁ Γ₂: context γ) (A B: tp)
+  : matrix (A::B::γ) γ
+| _ (ZVar _ _) := Γ₁
+| _ (SVar _ $ ZVar _ _) := Γ₂
+| C (SVar _ $ SVar _ x) := matrix.identity γ C x
 
-def dsub_sub {γ} {A B: tp} (Γ: context γ) (M: term Γ A) (N: term Γ B)
-  : sub_fn (dsub_mat Γ A B)
-| _ ZVar := M
-| _ (SVar x) := Var x
--/
+def dsub_sub {γ} {A B: tp} (Γ₁ Γ₂: context γ) (M: term Γ₁ A) (N: term Γ₂ B)
+  : sub_fn (dsub_mat Γ₁ Γ₂ A B)
+| _ (ZVar _ _) := M
+| _ (SVar _ $ ZVar _ _) := N
+| _ (SVar _ $ SVar _ x) := Var _ x (begin unfold dsub_mat, simp end)
 
 def dsubst {γ} {Γ Γ₁ Γ₂: context γ} {A B₁ B₂: tp} {π₁ π₂: mult}
   (Δ: context γ)
@@ -203,7 +205,10 @@ def dsubst {γ} {Γ Γ₁ Γ₂: context γ} {A B₁ B₂: tp} {π₁ π₂: mul
   (_: auto_param (Δ = Γ + π₁•Γ₁ + π₂•Γ₂) ``solve_context)
   ----------------
   : term Δ A :=
-    sorry
+    subst (dsub_sub Γ₁ Γ₂ s₁ s₂) _ e
+    (begin
+      simp with unfold_, unfold dsub_mat, solve_context,
+    end)
 
 end term
 
