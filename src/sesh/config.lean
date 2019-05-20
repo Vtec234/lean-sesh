@@ -248,9 +248,9 @@ notation C` -`h`⟶C `C':55 := config_reduces h C C'
             rw [sesh_tp.dual],
           end)
         $ begin
-          simp [*, identity] with unfold_,
-          h_generalize Hx: (ZVar γ $ sesh_tp.dual $ !A⬝S) == x,
-          apply eq_of_heq, lmao
+          have h: ?A⬝sesh_tp.dual S = sesh_tp.dual (!A⬝S),
+          unfold sesh_tp.dual,
+          sorry
         end))
   -ΓSend⟶C
   (CComp (⟦1⬝S♯⟧::Γv) Φ

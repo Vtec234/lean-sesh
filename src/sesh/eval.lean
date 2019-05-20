@@ -6,6 +6,12 @@ import sesh.ren_sub
 open term
 open matrix
 
+universes u v w
+
+/- Oh no, additional axioms. -/
+axiom heq.congr {α γ : Sort u} {β δ : Sort v} {f₁ : α → β} {f₂ : γ → δ} {a₁ : α} {a₂ : γ} (h₁ : f₁ == f₂) (h₂ : a₁ == a₂) : f₁ a₁ == f₂ a₂
+
+axiom heq.dcongr {α β : Sort u} {γ δ : Sort v} {ε ζ : Sort w} {f₁ : Π α, γ → ε} {f₂ : Π β, δ → ζ} {a₁₁ : α} {a₁₂ : γ} {a₂₁ : β} {a₂₂ : δ} (h₁ : f₁ == f₂) (h₂ : a₁₁ == a₂₁) (h₃ : a₁₂ == a₂₂) : f₁ a₁₁ a₁₂ == f₂ a₂₁ a₂₂
 
 /- The context except the hole consumes Γₑ resources, while the
    hole can consume arbitrary resources Γ. The term plugged in
@@ -190,16 +196,14 @@ open matrix.vmul
 /- The new function we're defining takes a hole term defined over
    an extended environment (rename ρ Γ) and returns the same expression,
    but well-typed under the extended environment. -/
-set_option eqn_compiler.lemmas false
 def ext:
-    Π {γ δ: precontext} {Γ: context γ} {A' A: tp}
+    Π {γ δ: precontext}  {A' A: tp}{Γ: context γ}
       {E: eval_ctx_fn Γ A' A}
     (ρ: ren_fn γ δ),
     eval_ctx Γ E
     -----------------------------------------------
-  → let Γ' := (Γ ⊛ (λ B x, identity δ B $ ρ B x)) in
-    Σ E': eval_ctx_fn Γ' A' A,
-      eval_ctx Γ' E'
+  → Σ E': eval_ctx_fn (Γ ⊛ (λ B x, identity δ B $ ρ B x)) A' A,
+      eval_ctx (Γ ⊛ (λ B x, identity δ B $ ρ B x)) E'
 /- In each case we define what happens when the resulting
    renamed evaluation context is _applied_ to a hole-filling
    argument, which is the last matched variable (usually M).
@@ -315,83 +319,8 @@ end
   ⟨_, EWait
     E'.fst
     E'.snd⟩
-set_option eqn_compiler.lemmas true
 
-/- can't define this using tactics without well_founded.fix
-def wrap': Π {γ} {Γₑ Γₑ': context γ} {A'' A' A: tp}
-  (E: eval_ctx_fn Γₑ A'' A')
-  (hE: eval_ctx Γₑ E)
-  (E': eval_ctx_fn Γₑ' A' A)
-  (hE': eval_ctx Γₑ' E')
-  (Γ: context γ)
-  (hΓ: Γ = Γₑ+Γₑ'),
-  Σ E': eval_ctx_fn Γ A'' A,
-      eval_ctx Γ E'
-| γ Γₑ Γₑ' A'' A' A E hE E' hE' Γ hΓ :=
-begin
-  intros,
-  cases h: hE',
-  case EHole {
-    convert (sigma.mk E hE),
-    { rw [hΓ],
-      show (Γₑ+0) = Γₑ, exact context.add_zero },
-    simp [*, hΓ], congr' 1, simp [hΓ],
-    { show (Γₑ+0) = Γₑ, exact context.add_zero } },
-   all_goals {
-    have wf: eval_ctx.sizeof _ _ a < eval_ctx.sizeof _ _ hE',
-    admit,
-    have EE' := wrap' E hE E_1 a _ rfl, split }, -- TODO unstable naming here
-  { refine have _ := wf, EAppLeft Γ _ N EE'.fst EE'.snd,
-    solve_context },
-  { refine EAppRight Γ _ hV EE'.fst EE'.snd,
-    solve_context },
-  { refine ELetUnit Γ _ N EE'.fst EE'.snd,
-    solve_context },
-  { refine EPairLeft Γ _ N EE'.fst EE'.snd,
-    solve_context },
-  { refine EPairRight Γ _ hV EE'.fst EE'.snd,
-    solve_context },
-  { refine ELetPair Γ _ N EE'.fst EE'.snd,
-    solve_context },
-  { refine EInl B _ _,
-    convert EE'.fst,
-    convert EE'.snd,
-    h_generalize Hx: EE'.fst == x,
-    exact Hx.symm },
-  { refine EInr A_1 _ _,
-    convert EE'.fst,
-    convert EE'.snd,
-    h_generalize Hx: EE'.fst == x,
-    exact Hx.symm },
-  { refine ECase Γ _ M N EE'.fst EE'.snd,
-    solve_context },
-  { refine EFork _ _,
-    convert EE'.fst,
-    convert EE'.snd,
-    h_generalize Hx: EE'.fst == x,
-    exact Hx.symm },
-  { refine ESendLeft Γ _ N EE'.fst EE'.snd,
-    solve_context },
-  { refine ESendRight Γ _ hV EE'.fst EE'.snd,
-    solve_context },
-  { refine ERecv _ _,
-    convert EE'.fst,
-    convert EE'.snd,
-    h_generalize Hx: EE'.fst == x,
-    exact Hx.symm },
-  { refine EWait _ _,
-    convert EE'.fst,
-    convert EE'.snd,
-    h_generalize Hx: EE'.fst == x,
-    exact Hx.symm },
-end
-using_well_founded { rel_tac := λ f eqns, `[
-  exact ⟨_, measure_wf (λ e, eval_ctx.sizeof _ _ e.2.2.2.2.2.2.2.2.2.1)⟩
-] }
--/
-
-set_option eqn_compiler.lemmas false
-def wrap: Π {γ} {Γₑ Γₑ': context γ} {A'' A' A: tp}
+def wrap: Π {γ} {A'' A' A: tp} {Γₑ Γₑ': context γ}
   (E: eval_ctx_fn Γₑ A'' A')
   (hE: eval_ctx Γₑ E)
   (E': eval_ctx_fn Γₑ' A' A)
@@ -403,64 +332,94 @@ def wrap: Π {γ} {Γₑ Γₑ': context γ} {A'' A' A: tp}
 | _ _ _ _ _ _ E hE _ (EHole _ _) Γ hΓ :=
   cast (begin congr; simp [*, hΓ], congr' 1, simp [hΓ] end)
     (sigma.mk E hE)
-| _ Γₑ _ _ _ _ E hE _ (EAppLeft _ _ N E' hE') Γ hΓ :=
+| _ _ _ _ _ _ E hE _ (EAppLeft _ _ N E' hE') Γ hΓ :=
   let EE' := wrap E hE E' hE' _ rfl in
   ⟨_, EAppLeft Γ (by solve_context) N EE'.fst EE'.snd⟩
-| _ Γₑ _ _ _ _ E hE _ (EAppRight _ _ hV E' hE') Γ hΓ :=
+| _ _ _ _ _ _ E hE _ (EAppRight _ _ hV E' hE') Γ hΓ :=
   let EE' := wrap E hE E' hE' _ rfl in
   ⟨_, EAppRight Γ (by solve_context) hV EE'.fst EE'.snd⟩
-| _ Γₑ _ _ _ _ E hE _ (ELetUnit _ _ N E' hE') Γ hΓ :=
+| _ _ _ _ _ _ E hE _ (ELetUnit _ _ N E' hE') Γ hΓ :=
   let EE' := wrap E hE E' hE' _ rfl in
   ⟨_, ELetUnit Γ (by solve_context) N EE'.fst EE'.snd⟩
-| _ Γₑ _ _ _ _ E hE _ (EPairLeft _ _ N E' hE') Γ hΓ :=
+| _ _ _ _ _ _ E hE _ (EPairLeft _ _ N E' hE') Γ hΓ :=
   let EE' := wrap E hE E' hE' _ rfl in
   ⟨_, EPairLeft Γ (by solve_context) N EE'.fst EE'.snd⟩
-| _ Γₑ _ _ _ _ E hE _ (EPairRight _ _ hV E' hE') Γ hΓ :=
+| _ _ _ _ _ _ E hE _ (EPairRight _ _ hV E' hE') Γ hΓ :=
   let EE' := wrap E hE E' hE' _ rfl in
   ⟨_, EPairRight Γ (by solve_context) hV EE'.fst EE'.snd⟩
-| _ Γₑ _ _ _ _ E hE _ (ELetPair _ _ N E' hE') Γ hΓ :=
+| _ _ _ _ _ _ E hE _ (ELetPair _ _ N E' hE') Γ hΓ :=
   let EE' := wrap E hE E' hE' _ rfl in
   ⟨_, ELetPair Γ (by solve_context) N EE'.fst EE'.snd⟩
-| _ Γₑ _ _ _ _ E hE _ (EInl B E' hE') Γ hΓ :=
+| _ _ _ _ _ _ E hE _ (EInl B E' hE') Γ hΓ :=
   let EE' := wrap E hE E' hE' _ rfl in
   ⟨_, EInl B (cast (by rw [hΓ]) EE'.fst) $ cast (begin
     congr' 1, exact hΓ.symm,
     h_generalize Hx: EE'.fst == x, exact Hx,
   end) EE'.snd⟩
-| _ Γₑ _ _ _ _ E hE _ (EInr A E' hE') Γ hΓ :=
+| _ _ _ _ _ _ E hE _ (EInr A E' hE') Γ hΓ :=
   let EE' := wrap E hE E' hE' _ rfl in
   ⟨_, EInr A (cast (by rw [hΓ]) EE'.fst) $ cast (begin
     congr' 1, exact hΓ.symm,
     h_generalize Hx: EE'.fst == x, exact Hx,
   end) EE'.snd⟩
-| _ Γₑ _ _ _ _ E hE _ (ECase _ _ M N E' hE') Γ hΓ :=
+| _ _ _ _ _ _ E hE _ (ECase _ _ M N E' hE') Γ hΓ :=
   let EE' := wrap E hE E' hE' _ rfl in
   ⟨_, ECase Γ (by solve_context) M N EE'.fst EE'.snd⟩
-| _ Γₑ _ _ _ _ E hE _ (EFork E' hE') Γ hΓ :=
+| _ _ _ _ _ _ E hE _ (EFork E' hE') Γ hΓ :=
   let EE' := wrap E hE E' hE' _ rfl in
   ⟨_, EFork (cast (by rw [hΓ]) EE'.fst) $ cast (begin
     congr' 1, exact hΓ.symm,
     h_generalize Hx: EE'.fst == x, exact Hx,
   end) EE'.snd⟩
-| _ Γₑ _ _ _ _ E hE _ (ESendLeft _ _ M E' hE') Γ hΓ :=
+| _ _ _ _ _ _ E hE _ (ESendLeft _ _ M E' hE') Γ hΓ :=
   let EE' := wrap E hE E' hE' _ rfl in
   ⟨_, ESendLeft Γ (by solve_context) M EE'.fst EE'.snd⟩
-| _ Γₑ _ _ _ _ E hE _ (ESendRight _ _ hV E' hE') Γ hΓ :=
+| _ _ _ _ _ _ E hE _ (ESendRight _ _ hV E' hE') Γ hΓ :=
   let EE' := wrap E hE E' hE' _ rfl in
   ⟨_, ESendRight Γ (by solve_context) hV EE'.fst EE'.snd⟩
-| _ Γₑ _ _ _ _ E hE _ (ERecv E' hE') Γ hΓ :=
+| _ _ _ _ _ _ E hE _ (ERecv E' hE') Γ hΓ :=
   let EE' := wrap E hE E' hE' _ rfl in
   ⟨_, ERecv (cast (by rw [hΓ]) EE'.fst) $ cast (begin
     congr' 1, exact hΓ.symm,
     h_generalize Hx: EE'.fst == x, exact Hx,
   end) EE'.snd⟩
-| _ Γₑ _ _ _ _ E hE _ (EWait E' hE') Γ hΓ :=
+| _ _ _ _ _ _ E hE _ (EWait E' hE') Γ hΓ :=
   let EE' := wrap E hE E' hE' _ rfl in
   ⟨_, EWait (cast (by rw [hΓ]) EE'.fst) $ cast (begin
     congr' 1, exact hΓ.symm,
     h_generalize Hx: EE'.fst == x, exact Hx,
   end) EE'.snd⟩
-set_option eqn_compiler.lemmas true
+
+set_option pp.implicit true
+
+lemma wrap_composes {γ} {Γ Γₑ Γₑ': context γ} {A'' A' A: tp}
+    {M: term Γ A''}
+    {E': eval_ctx_fn Γₑ A'' A'}
+    {hE': eval_ctx Γₑ E'}
+    {E: eval_ctx_fn Γₑ' A' A}
+    {hE: eval_ctx Γₑ' E}
+  (Γ': context γ)
+  (hΓ': Γ' = Γ+Γₑ)
+  (EM: term Γ' A')
+  (Γ'': context γ)
+  (hΓ'': Γ'' = Γ'+Γₑ')
+  (EM': term Γ'' A)
+  (hEM: EM = E'.apply Γ' M)
+  (hEM': EM' = E.apply Γ'' EM)
+  : EM' = (wrap E' hE' E hE _ rfl).fst.apply Γ'' M :=
+begin
+  induction hE; simp [*, wrap, eval_ctx_fn.apply],
+  case EHole {
+    h_generalize Hx: (E' Γ M) == x,
+    h_generalize Hy: x == y,
+    h_generalize Hx': (⟨E', hE'⟩: Σ E': eval_ctx_fn Γₑ A'' hE_A, eval_ctx Γₑ E') == x',
+    congr' 1, simp [hΓ'],
+    apply heq.trans Hy.symm, apply heq.trans Hx.symm,
+    apply heq.congr, unfold sigma.fst,
+    sorry
+  },
+  sorry
+end
 
 end eval_ctx
 
